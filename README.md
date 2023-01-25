@@ -77,10 +77,10 @@ Feel free to add to the list of busses in the ```bus-list.json``` file. [This is
         "Departure":"Union Station",
         "Destination":"HSC",
         "weekdays": {
-            "Times":["6:08","6:23",...]
+            "Times":["6:08","6:23"..."21:40"]
         },
         "weekends": {
-            "Times":["8:45","10:10",...]
+            "Times":["8:45","10:10"..."16:10"]
         }
     }
 ```
