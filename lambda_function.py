@@ -1,6 +1,9 @@
-import json, datetime
+import json, datetime, logging
 
 def lambda_handler(event, context):
+    client_ip = event['requestContext']['identity']['sourceIp']
+    logging.info("Received request from IP: {}".format(client_ip))
+
     if event['queryStringParameters']['requestType'] == "returnLocations":
         return {
             "locations": return_locations()
@@ -10,12 +13,11 @@ def lambda_handler(event, context):
         if 'time' in event['queryStringParameters']: currenttime = event['queryStringParameters']['time']
         else: currenttime = get_current_time()
 
-        dayofweek = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8))).weekday()
+        datetocheck = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
         if 'date' in event['queryStringParameters']:
-            #convert the date in a string format "1/26/23" to a weekday
-            dayofweek = datetime.datetime.strptime(event['queryStringParameters']['date'], '%m/%d/%y').weekday()
+            datetocheck = datetime.datetime.strptime(event['queryStringParameters']['date'], '%m/%d/%y')
 
-        return return_times(event['queryStringParameters']['Departure'], event['queryStringParameters']['Destination'], currenttime, dayofweek)
+        return return_times(event['queryStringParameters']['Departure'], event['queryStringParameters']['Destination'], currenttime, datetocheck)
 
 def import_json():
     #import the json file bus-times.json
@@ -69,25 +71,39 @@ def return_locations():
                     location["destinations"].append(route["Destination"])
     return locations
 
-def return_times(departure, destination, timetocheck, daytocheck):
-    arrayoftimes = (get_route_times(departure, destination, daytocheck))
-    if len(arrayoftimes) == 0: return {
-        "response": "There are no buses running today"
+def return_times(departure, destination, timetocheck, datetocheck):
+    arrayoftimes = (get_route_times(departure, destination, datetocheck.weekday()))
+
+    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck)
+
+    logging.info("response: " + string_to_return)
+
+    return {
+        "response": string_to_return
     }
 
+def makeresponseString(arrayoftimes,timetocheck, datetocheck):
+    string_to_return = ""
+
+    endingofResponseString = " today."
+    if datetocheck.weekday() != datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8))).weekday():
+        #set ending of response string to the date in format "on Monday, January 1"
+        endingofResponseString = " on " + datetocheck.strftime("%A, %B %d") + "."
+    
+
+    if len(arrayoftimes) == 0:
+        return "There are no buses running" + endingofResponseString
+
     index = get_index_of_nearest_time(arrayoftimes, timetocheck)
+
     if index == len(arrayoftimes) - 1:
-        return {
-            "response": "The next bus is at " + str(convert_to_twelve_hour_time(arrayoftimes[index]))
-        }
+        string_to_return = "The next bus is at " + str(convert_to_twelve_hour_time(arrayoftimes[index]))
     elif index == len(arrayoftimes):
-        return {
-            "response": "There are no more buses today"
-        }
+        string_to_return = "There are no more buses today"
     else:
-        return {
-            "response": "The next bus is at " + str(convert_to_twelve_hour_time(arrayoftimes[index])) + " and the one after that is at " + str(convert_to_twelve_hour_time(arrayoftimes[index + 1]))
-        }
+        string_to_return = "The next bus is at " + str(convert_to_twelve_hour_time(arrayoftimes[index])) + " and the one after that is at " + str(convert_to_twelve_hour_time(arrayoftimes[index + 1]))
+
+    return string_to_return + endingofResponseString
 
 if __name__ == "__main__":
     print(lambda_handler({
@@ -95,7 +111,7 @@ if __name__ == "__main__":
             "requestType": "returnTime",
             "Departure": "Jefferson",
             "Destination": "HSC",
-            "time": "21:00",
-            "date": "1/28/23"
+            "time": "11:30",
+            "date": "1/27/23"
         }
     }, None))
