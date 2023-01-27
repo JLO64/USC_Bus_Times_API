@@ -1,8 +1,10 @@
-import json, datetime, logging
+import json, datetime
 
 def lambda_handler(event, context):
-    client_ip = event['requestContext']['identity']['sourceIp']
-    logging.info("Received request from IP: {}".format(client_ip))
+    if 'requestContext' in event:
+        userinfo = event["requestContext"]["http"]
+        print("userAgent: {}".format(userinfo["userAgent"]))
+        print("sourceIp: {}".format(userinfo["sourceIp"]))
 
     if event['queryStringParameters']['requestType'] == "returnLocations":
         return {
@@ -76,19 +78,18 @@ def return_times(departure, destination, timetocheck, datetocheck):
 
     string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck)
 
-    logging.info("response: " + string_to_return)
+    print("response: " + string_to_return)
 
     return {
         "response": string_to_return
     }
 
-def makeresponseString(arrayoftimes,timetocheck, datetocheck):
+def makeresponseString(arrayoftimes,timetocheck, datetocheck, departure, destination):
     string_to_return = ""
 
-    endingofResponseString = " today."
+    endingofResponseString = " from " + departure + " to " + destination + " today."
     if datetocheck.weekday() != datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8))).weekday():
-        #set ending of response string to the date in format "on Monday, January 1"
-        endingofResponseString = " on " + datetocheck.strftime("%A, %B %d") + "."
+        endingofResponseString = " from " + departure + " to " + destination + " on " + datetocheck.strftime("%A, %B %d") + "."
     
 
     if len(arrayoftimes) == 0:
@@ -99,7 +100,7 @@ def makeresponseString(arrayoftimes,timetocheck, datetocheck):
     if index == len(arrayoftimes) - 1:
         string_to_return = "The next bus is at " + str(convert_to_twelve_hour_time(arrayoftimes[index]))
     elif index == len(arrayoftimes):
-        string_to_return = "There are no more buses today"
+        string_to_return = "There are no more buses"
     else:
         string_to_return = "The next bus is at " + str(convert_to_twelve_hour_time(arrayoftimes[index])) + " and the one after that is at " + str(convert_to_twelve_hour_time(arrayoftimes[index + 1]))
 
