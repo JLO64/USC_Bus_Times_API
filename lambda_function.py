@@ -76,7 +76,7 @@ def return_locations():
 def return_times(departure, destination, timetocheck, datetocheck):
     arrayoftimes = (get_route_times(departure, destination, datetocheck.weekday()))
 
-    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck)
+    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck, departure, destination)
 
     print("response: " + string_to_return)
 
