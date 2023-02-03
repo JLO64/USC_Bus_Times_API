@@ -7,9 +7,8 @@ def lambda_handler(event, context):
         print("sourceIp: {}".format(userinfo["sourceIp"]))
 
     if event['queryStringParameters']['requestType'] == "returnLocations":
-        return {
-            "locations": return_locations()
-        }
+        return return_locations()
+
     elif event['queryStringParameters']['requestType'] == "returnTime":
         currenttime = ""
         if 'time' in event['queryStringParameters']: currenttime = event['queryStringParameters']['time']
@@ -18,8 +17,56 @@ def lambda_handler(event, context):
         datetocheck = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
         if 'date' in event['queryStringParameters']:
             datetocheck = datetime.datetime.strptime(event['queryStringParameters']['date'], '%m/%d/%y')
+        
+        if 'Stop' in event['queryStringParameters']:
+            return return_stop_times(event['queryStringParameters']['Route'], event['queryStringParameters']['Stop'], currenttime, datetocheck)
+        elif 'Subroute' in event['queryStringParameters']:
+            return return_subroute_times(event['queryStringParameters']['Route'], event['queryStringParameters']['Subroute'], currenttime, datetocheck)
 
-        return return_times(event['queryStringParameters']['Departure'], event['queryStringParameters']['Destination'], currenttime, datetocheck)
+#        return return_times(event['queryStringParameters']['Departure'], event['queryStringParameters']['Destination'], currenttime, datetocheck)
+
+    else:
+        return {
+            "statusCode": 200,
+            "body": json.dumps("Please enter a valid requestType")
+        }
+
+def return_stop_times(route, stop, timetocheck, datetocheck):
+#stop is the departure
+    data = import_json()
+
+    arrayoftimes = []
+
+    day = datetocheck.weekday()
+    if day < 5: schedule = "weekdays"
+    else: schedule = "weekends"
+
+    for entry in data:
+        if entry["Route"] == route and entry["Departure"] == stop:
+            if not schedule in entry: arrayoftimes = []
+            else: arrayoftimes = entry[schedule]["Times"]
+
+    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck, stop, route, routetype="stop")
+    
+    print("response: " + string_to_return)
+
+    return {
+        "response": string_to_return
+    }
+
+def return_subroute_times(route, subroute, timetocheck, datetocheck):
+    return True
+
+def return_times(departure, destination, timetocheck, datetocheck):
+    arrayoftimes = (get_route_times(departure, destination, datetocheck.weekday()))
+
+    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck, departure, destination)
+
+    print("response: " + string_to_return)
+
+    return {
+        "response": string_to_return
+    }
 
 def import_json():
     #import the json file bus-times.json
@@ -27,13 +74,13 @@ def import_json():
         data = json.load(json_file)
         return data
 
-def get_route_times(departure, destination, daytocheck):
+def get_route_times(daytocheck, Route, Departure, Destination=None):
     data = import_json()
     day = daytocheck
     if day < 5: schedule = "weekdays"
     else: schedule = "weekends"
     for route in data:
-        if route["Departure"] == departure and route["Destination"] == destination:
+        if route["Departure"] == Departure and route["Destination"] == Destination:
             if not schedule in route: return []
             else: return route[schedule]["Times"]
 
@@ -60,31 +107,21 @@ def convert_to_twelve_hour_time(timestr):
 
 def return_locations():
     data = import_json()
-    locations = []
-    for route in data:
-        if not any(location["name"] == route["Departure"] for location in locations):
-            locations.append({
-                "name": route["Departure"],
-                "destinations": [route["Destination"]]
-            })
+    result = {}
+    for entry in data:
+        route = entry['Route']
+        if route not in result:
+            if 'Destination' in entry:
+                result[route] = {'Subroutes': []}
+            else:
+                result[route] = {'Stops': []}
+        if 'Destination' in entry:
+            result[route]['Subroutes'].append(entry['Departure'] + " to " + entry['Destination'])
         else:
-            for location in locations:
-                if location["name"] == route["Departure"]:
-                    location["destinations"].append(route["Destination"])
-    return locations
+            result[route]['Stops'].append(entry['Departure'])
+    return result
 
-def return_times(departure, destination, timetocheck, datetocheck):
-    arrayoftimes = (get_route_times(departure, destination, datetocheck.weekday()))
-
-    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck, departure, destination)
-
-    print("response: " + string_to_return)
-
-    return {
-        "response": string_to_return
-    }
-
-def makeresponseString(arrayoftimes,timetocheck, datetocheck, departure, destination):
+def makeresponseString(arrayoftimes,timetocheck, datetocheck, departure, destination, routetype):
     string_to_return = ""
 
     endingofResponseString = " from " + departure + " to " + destination + " today."
@@ -107,12 +144,18 @@ def makeresponseString(arrayoftimes,timetocheck, datetocheck, departure, destina
     return string_to_return + endingofResponseString
 
 if __name__ == "__main__":
-    print(lambda_handler({
-        "queryStringParameters": {
-            "requestType": "returnTime",
-            "Departure": "Jefferson",
-            "Destination": "HSC",
-            "time": "11:30",
-            "date": "1/27/23"
-        }
-    }, None))
+    print(return_locations())
+    #print(lambda_handler({
+    #    "queryStringParameters": {
+    #        "requestType": "returnTime",
+    #        "Departure": "Jefferson",
+    #        "Destination": "HSC",
+    #        "time": "11:30",
+    #        "date": "1/27/23"
+    #    }
+    #}, None))
+
+## TODO: Add twitter notifications
+## TODO: Add multi language support
+## TODO: Redo the shortcuts interface
+## TODO: Create an alarm when using date and time
