@@ -1,4 +1,5 @@
 import json, datetime
+from latest_USC_bus_tweet import get_tweets
 
 def lambda_handler(event, context):
     if 'requestContext' in event:
@@ -23,8 +24,6 @@ def lambda_handler(event, context):
         elif 'Subroute' in event['queryStringParameters']:
             return return_subroute_times(event['queryStringParameters']['Route'], event['queryStringParameters']['Subroute'], currenttime, datetocheck)
 
-#        return return_times(event['queryStringParameters']['Departure'], event['queryStringParameters']['Destination'], currenttime, datetocheck)
-
     else:
         return {
             "statusCode": 200,
@@ -32,7 +31,6 @@ def lambda_handler(event, context):
         }
 
 def return_stop_times(route, stop, timetocheck, datetocheck):
-#stop is the departure
     data = import_json()
 
     arrayoftimes = []
@@ -46,7 +44,7 @@ def return_stop_times(route, stop, timetocheck, datetocheck):
             if not schedule in entry: arrayoftimes = []
             else: arrayoftimes = entry[schedule]["Times"]
 
-    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck, stop, route, routetype="stop")
+    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck, [route, stop], routetype="stop")
     
     print("response: " + string_to_return)
 
@@ -55,13 +53,24 @@ def return_stop_times(route, stop, timetocheck, datetocheck):
     }
 
 def return_subroute_times(route, subroute, timetocheck, datetocheck):
-    return True
+    data = import_json()
 
-def return_times(departure, destination, timetocheck, datetocheck):
-    arrayoftimes = (get_route_times(departure, destination, datetocheck.weekday()))
+    arrayoftimes = []
 
-    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck, departure, destination)
+    day = datetocheck.weekday()
+    if day < 5: schedule = "weekdays"
+    else: schedule = "weekends"
 
+    departure = subroute.split(" to ")[0]
+    destination = subroute.split(" to ")[1]
+
+    for entry in data:
+        if entry["Route"] == route and entry["Departure"] == departure and entry["Destination"] == destination:
+            if not schedule in entry: arrayoftimes = []
+            else: arrayoftimes = entry[schedule]["Times"]
+
+    string_to_return = makeresponseString(arrayoftimes, timetocheck, datetocheck, [departure, destination], routetype="subroute")
+    
     print("response: " + string_to_return)
 
     return {
@@ -80,7 +89,7 @@ def get_route_times(daytocheck, Route, Departure, Destination=None):
     if day < 5: schedule = "weekdays"
     else: schedule = "weekends"
     for route in data:
-        if route["Departure"] == Departure and route["Destination"] == Destination:
+        if route["Departure"] == Departure and route["Destination"] == Destination and route["Route"] == Route:
             if not schedule in route: return []
             else: return route[schedule]["Times"]
 
@@ -121,13 +130,19 @@ def return_locations():
             result[route]['Stops'].append(entry['Departure'])
     return result
 
-def makeresponseString(arrayoftimes,timetocheck, datetocheck, departure, destination, routetype):
+def makeresponseString(arrayoftimes, timetocheck, datetocheck, routearray, routetype):
     string_to_return = ""
 
-    endingofResponseString = " from " + departure + " to " + destination + " today."
-    if datetocheck.weekday() != datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8))).weekday():
-        endingofResponseString = " from " + departure + " to " + destination + " on " + datetocheck.strftime("%A, %B %d") + "."
-    
+    endingofResponseString = ""
+    if routetype == "stop":
+        endingofResponseString = " from the " + routearray[1] + " stop on the " + routearray[0]
+    elif routetype == "subroute":
+        endingofResponseString = " from " + routearray[0] + " to " + routearray[1]
+        
+    if datetocheck.strftime("%m/%d/%Y") != datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8))).strftime("%m/%d/%Y"):
+        endingofResponseString += " on " + datetocheck.strftime("%A, %B %d") + "."
+    else:
+        endingofResponseString += " today."
 
     if len(arrayoftimes) == 0:
         return "There are no buses running" + endingofResponseString
@@ -141,19 +156,13 @@ def makeresponseString(arrayoftimes,timetocheck, datetocheck, departure, destina
     else:
         string_to_return = "The next bus is at " + str(convert_to_twelve_hour_time(arrayoftimes[index])) + " and the one after that is at " + str(convert_to_twelve_hour_time(arrayoftimes[index + 1]))
 
-    return string_to_return + endingofResponseString
+    return string_to_return + endingofResponseString + get_tweets()
 
 if __name__ == "__main__":
-    print(return_locations())
-    #print(lambda_handler({
-    #    "queryStringParameters": {
-    #        "requestType": "returnTime",
-    #        "Departure": "Jefferson",
-    #        "Destination": "HSC",
-    #        "time": "11:30",
-    #        "date": "1/27/23"
-    #    }
-    #}, None))
+    #print(return_locations())
+    #print(lambda_handler({ "queryStringParameters": {"requestType": "returnTime", "Stop": "UPC (Vivian Hall)", "Route": "Marina Del Rey Shuttle", "time": "11:30", "date": "1/27/23" } }, None))
+    #print(lambda_handler({ "queryStringParameters": {"requestType": "returnTime", "Route": "Intercampus Shuttle", "Subroute": "Jefferson to HSC", "time": "11:30", "date": "1/27/23" } }, None))
+    print(lambda_handler({ "queryStringParameters": {"requestType": "returnTime", "Route": "Intercampus Shuttle", "Subroute": "Jefferson to HSC"} }, None))
 
 ## TODO: Add twitter notifications
 ## TODO: Add multi language support
