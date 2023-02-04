@@ -1,5 +1,4 @@
-import requests
-import datetime
+import requests, datetime, pytz
 
 # To set your environment variables in your terminal run the following line:
 # export 'BEARER_TOKEN'='<your_bearer_token>'
@@ -10,7 +9,9 @@ search_url = "https://api.twitter.com/2/tweets/search/recent"
 # Optional params: start_time,end_time,since_id,until_id,max_results,next_token,
 # expansions,tweet.fields,media.fields,poll.fields,place.fields,user.fields
 
-start_time = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8))).replace(hour=1, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+start_datetime = datetime.datetime.now().replace(hour=1, minute=0, second=0, microsecond=0)
+start_datetime = start_datetime - datetime.timedelta(hours=-8)
+start_time = start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 query_params = {'query': '(from:USCmoves -is:retweet) OR #USCmoves','tweet.fields': 'author_id', 'start_time': start_time}
 
@@ -37,8 +38,9 @@ def get_tweets():
     bus_announcements_string = ""
 
     json_response = connect_to_endpoint(search_url, query_params)
-    for i in json_response['data']:
-        usc_bus_announcements.append("\n-" + i['text'])
+    if 'data' in json_response:
+        for i in json_response['data']:
+            usc_bus_announcements.append("\n-" + i['text'])
 
     if len(usc_bus_announcements) > 0:
         bus_announcements_string = "\n\nToday's USC Bus Announcements:" + " ".join(usc_bus_announcements)
