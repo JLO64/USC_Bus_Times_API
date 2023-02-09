@@ -1,5 +1,5 @@
 import json, datetime
-from latest_USC_bus_tweet import get_tweets
+import boto3
 
 def lambda_handler(event, context):
     if 'requestContext' in event:
@@ -31,7 +31,7 @@ def lambda_handler(event, context):
         }
 
 def return_stop_times(route, stop, timetocheck, datetocheck):
-    data = import_json()
+    data = import_json_from_s3()
 
     arrayoftimes = []
 
@@ -53,7 +53,7 @@ def return_stop_times(route, stop, timetocheck, datetocheck):
     }
 
 def return_subroute_times(route, subroute, timetocheck, datetocheck):
-    data = import_json()
+    data = import_json_from_s3()
 
     arrayoftimes = []
 
@@ -77,21 +77,17 @@ def return_subroute_times(route, subroute, timetocheck, datetocheck):
         "response": string_to_return
     }
 
-def import_json():
-    #import the json file bus-times.json
-    with open('bus-times.json') as json_file:
-        data = json.load(json_file)
-        return data
+def import_json_from_s3():
+    s3 = boto3.client("s3")
 
-def get_route_times(daytocheck, Route, Departure, Destination=None):
-    data = import_json()
-    day = daytocheck
-    if day < 5: schedule = "weekdays"
-    else: schedule = "weekends"
-    for route in data:
-        if route["Departure"] == Departure and route["Destination"] == Destination and route["Route"] == Route:
-            if not schedule in route: return []
-            else: return route[schedule]["Times"]
+    bucket_name = "usc-bus-data"
+    object_key = "bus-times.json"
+
+    obj = s3.get_object(Bucket=bucket_name, Key=object_key)
+    json_file = obj["Body"].read().decode("utf-8")
+
+    json_data = json.loads(json_file)
+    return json_data
 
 def get_index_of_nearest_time(timesarray, currenttime):
     currenthour = int(currenttime.split(":")[0])
@@ -115,7 +111,7 @@ def convert_to_twelve_hour_time(timestr):
     return datetime.datetime.strptime(timestr, '%H:%M').strftime('%I:%M %p')
 
 def return_locations():
-    data = import_json()
+    data = import_json_from_s3()
     result = {}
     for entry in data:
         route = entry['Route']
@@ -157,6 +153,27 @@ def makeresponseString(arrayoftimes, timetocheck, datetocheck, routearray, route
         string_to_return = "The next bus is at " + str(convert_to_twelve_hour_time(arrayoftimes[index])) + " and the one after that is at " + str(convert_to_twelve_hour_time(arrayoftimes[index + 1]))
 
     return string_to_return + endingofResponseString + get_tweets()
+
+def get_tweets():
+    try:
+        s3 = boto3.client("s3")
+
+        currentdate = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
+
+        bucket_name = "usc-bus-data"
+        object_key = f"twitter-announcements/{currentdate.strftime('%Y-%m-%d')}.json"
+
+        obj = s3.get_object(Bucket=bucket_name, Key=object_key)
+        json_file = obj["Body"].read().decode("utf-8")
+        json_data = json.loads(json_file)
+
+        string_to_return = "\n\nUSC Bus Twitter Announcements: "
+        for i in json_data:
+            string_to_return +=  "\n-" + i["openai"]
+
+        return string_to_return
+    except:
+        return ""
 
 if __name__ == "__main__":
     #print(return_locations())
