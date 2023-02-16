@@ -20,8 +20,6 @@ Both shortcuts will ask you for departure and destination bus stops. However the
 
 ### Example Screenshot
 
-<img src="example_result.jpg" height="200">
-
 ## AWS Lambda API
 
 ### API URL
