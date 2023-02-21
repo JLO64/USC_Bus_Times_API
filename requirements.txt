@@ -4,3 +4,8 @@
 
 azure-functions
 datetime
+snscrape
+azure-storage-blob
+azure-identity
+python-dotenv
+openai

@@ -7,6 +7,13 @@
             "request": "attach",
             "port": 9091,
             "preLaunchTask": "func: host start"
+        },
+        {
+            "name": "Run python file locally",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
         }
     ]
 }
