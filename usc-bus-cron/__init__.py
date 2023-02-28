@@ -44,17 +44,19 @@ def get_tweets(current_day, account_name):
 	return today_tweets
 
 def main(mytimer: func.TimerRequest) -> None:
+	currenttime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
+	
 	#set the environment variable ENVIRONMENT to "development" if you want to run this locally
-	try:
-		if ( os.environ['ENVIRONMENT'] == 'development'):
-			#this is for PST (on local machine)
-			currenttime = datetime.datetime.now()
-		else:
-			#this is for UTC-PST (on azure)
-			currenttime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
-	except:
-		#this is for UTC-PST (on azure)
-		currenttime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
+#	try:
+#		if ( os.environ['ENVIRONMENT'] == 'development'):
+#			#this is for PST (on local machine)
+#			currenttime = datetime.datetime.now()
+#		else:
+#			#this is for UTC-PST (on azure)
+#			currenttime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
+#	except:
+#		#this is for UTC-PST (on azure)
+#		currenttime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
 
 	twitter_account_to_scrape = "uscmoves"
 

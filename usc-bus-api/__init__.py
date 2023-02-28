@@ -23,10 +23,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 		if 'date' in req.params:
 			datetocheck = datetime.datetime.strptime(req.params.get('date'), '%m/%d/%y')
 
-		if 'Stop' in req.params:
-			return func.HttpResponse(json.dumps(return_stop_times(req.params.get('Route'), req.params.get('Stop'), currenttime, datetocheck)), mimetype="application/json")
-		elif 'Subroute' in req.params:
-			return func.HttpResponse(json.dumps(return_subroute_times(req.params.get('Route'), req.params.get('Subroute'), currenttime, datetocheck)), mimetype="application/json")
+		if 'Stops' in req.params:
+			return func.HttpResponse(json.dumps(return_stop_times(req.params.get('Route'), req.params.get('Stops'), currenttime, datetocheck)), mimetype="application/json")
+		elif 'Subroutes' in req.params:
+			return func.HttpResponse(json.dumps(return_subroute_times(req.params.get('Route'), req.params.get('Subroutes'), currenttime, datetocheck)), mimetype="application/json")
 	else:
 		return func.HttpResponse(
 			 "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
@@ -96,8 +96,8 @@ def import_json_from_s3():
 	json_data = json.loads(json_file)
 	return json_data
 
-def import_json_from_local():
-	with open("bin/bus-times.json") as json_file:
+def import_json_from_local(json_filepath="bin/bus-times.json"):
+	with open(json_filepath) as json_file:
 		json_data = json.load(json_file)
 		return json_data
 
@@ -123,9 +123,10 @@ def convert_to_twelve_hour_time(timestr):
 	return datetime.datetime.strptime(timestr, '%H:%M').strftime('%I:%M %p')
 
 def return_locations():
-	data = import_json_from_local()
+	bus_times_data = import_json_from_local()
+	route_links = import_json_from_local(json_filepath="bin/route-map-links.json")
 	result = {}
-	for entry in data:
+	for entry in bus_times_data:
 		route = entry['Route']
 		if route not in result:
 			if 'Destination' in entry:
@@ -136,6 +137,9 @@ def return_locations():
 			result[route]['Subroutes'].append(entry['Departure'] + " to " + entry['Destination'])
 		else:
 			result[route]['Stops'].append(entry['Departure'])
+
+		if route in route_links:
+			result[route]['map-link'] = route_links[route]
 	return result
 
 def makeresponseString(arrayoftimes, timetocheck, datetocheck, routearray, routetype):
